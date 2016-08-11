@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.BanList.Type;
@@ -169,22 +170,36 @@ public class ChatFilter extends JavaPlugin implements Listener {
 	@EventHandler
 	public void boesesWortGesagt(AsyncPlayerChatEvent e) {
 		if(e.isAsynchronous()) {
+			String newmessage = e.getMessage();
 			for(String boesesWort : boeseWoerter) {
-				if(StringUtils.containsIgnoreCase(e.getMessage(), boesesWort)) {
-					try {
-						Statement s = c.createStatement();
-						s.executeUpdate("UPDATE " + TABLE_USER + " SET anzahl = anzahl + 1 WHERE UUID = '" + e.getPlayer().getUniqueId().toString() + "' ORDER BY anzahl DESC;");
-						ResultSet rs = s.executeQuery("SELECT * FROM " + TABLE_USER + " WHERE UUID ='" + e.getPlayer().getUniqueId().toString() + "';");
-						if(rs.next()) {
-							int anzahl = rs.getInt("anzahl");
-							if(anzahl >= 3) getServer().dispatchCommand(getServer().getConsoleSender(), "tempmute " + e.getPlayer().getName() + " " + (anzahl * 10) + " m Chatverhalten");
-						}
-					} catch(SQLException e1) {
-						e1.printStackTrace();
+				if(StringUtils.containsIgnoreCase(e.getMessage().replace(" ", ""), boesesWort)) {
+					newmessage = replaceIgnoreCaseAndSpaces(newmessage, boesesWort, "****");
+				}
+			}
+			if(!newmessage.equals(e.getMessage())) {
+				try {
+					Statement s = c.createStatement();
+					s.executeUpdate("UPDATE " + TABLE_USER + " SET anzahl = anzahl + 1 WHERE UUID = '" + e.getPlayer().getUniqueId().toString() + "' ORDER BY anzahl DESC;");
+					ResultSet rs = s.executeQuery("SELECT * FROM " + TABLE_USER + " WHERE UUID ='" + e.getPlayer().getUniqueId().toString() + "';");
+					if(rs.next()) {
+						int anzahl = rs.getInt("anzahl");
+						if(anzahl >= 3) getServer().dispatchCommand(getServer().getConsoleSender(), "tempmute " + e.getPlayer().getName() + " " + (anzahl * 10) + " m Chatverhalten");
 					}
+					e.getPlayer().sendMessage(ChatColor.DARK_RED + "Keine Schimpfwörter hier!!!");
+				} catch(SQLException e1) {
+					e1.printStackTrace();
 				}
 			}
 		}
+	}
+	
+	public static String replaceIgnoreCaseAndSpaces(String string, String target, String replacement) {
+		String pattern = "";
+		for(int i = 0; i < target.length(); i++) {
+			pattern = pattern + target.charAt(i) + " *?";
+		}
+		pattern = pattern.substring(0, pattern.length() - 3);
+		return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(string).replaceAll(replacement);
 	}
 	
 }
